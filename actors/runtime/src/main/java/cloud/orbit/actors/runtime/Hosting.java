@@ -174,6 +174,10 @@ public class Hosting implements NodeCapabilities, Startable, PipelineExtension
     @Override
     public Task<Void> nodeModeChanged(final NodeAddress nodeAddress, final NodeState newState)
     {
+        if (logger.isDebugEnabled())
+        {
+            logger.debug("Node state changed to be: {}.", newState);
+        }
         final NodeInfo node = activeNodes.get(nodeAddress);
         if (node != null)
         {
@@ -190,6 +194,10 @@ public class Hosting implements NodeCapabilities, Startable, PipelineExtension
     @Override
     public Task<Void> moved(RemoteReference remoteReference, NodeAddress oldAddress, NodeAddress newAddress)
     {
+        if (logger.isDebugEnabled())
+        {
+            logger.debug("Move {} to from {} to {}.", remoteReference, oldAddress, newAddress);
+        }
         setCachedAddress(remoteReference, Task.fromValue(newAddress));
         return Task.done();
     }
@@ -197,6 +205,10 @@ public class Hosting implements NodeCapabilities, Startable, PipelineExtension
     @Override
     public Task<Void> remove(final RemoteReference<?> remoteReference)
     {
+        if (logger.isDebugEnabled())
+        {
+            logger.debug("Remove {} from this node.", remoteReference);
+        }
         localAddressCache.remove(remoteReference);
         return Task.done();
     }
@@ -328,8 +340,7 @@ public class Hosting implements NodeCapabilities, Startable, PipelineExtension
             }
             else
             {
-                final String interfaceClassName = interfaceClass.getName();
-                return selectNode(interfaceClassName, true);
+                return selectNode(interfaceClass.getName());
             }
         }
 
@@ -377,7 +388,7 @@ public class Hosting implements NodeCapabilities, Startable, PipelineExtension
             if (nodeAddress == null)
             {
                 // If not, select randomly
-                nodeAddress = await(selectNode(interfaceClass.getName(), true));
+                nodeAddress = await(selectNode(interfaceClass.getName()));
             }
 
             // Push our selection to the distributed cache (if possible)
@@ -427,7 +438,7 @@ public class Hosting implements NodeCapabilities, Startable, PipelineExtension
                 String.valueOf(actorReference.id));
     }
 
-    private Task<NodeAddress> selectNode(final String interfaceClassName, boolean allowToBlock)
+    private Task<NodeAddress> selectNode(final String interfaceClassName)
     {
         List<NodeInfo> potentialNodes;
         long start = System.currentTimeMillis();
@@ -450,9 +461,13 @@ public class Hosting implements NodeCapabilities, Startable, PipelineExtension
 
             if (potentialNodes.size() == 0)
             {
-                if (!allowToBlock)
+                if (stage.getState() != NodeCapabilities.NodeState.RUNNING)
                 {
                     return null;
+                }
+                if (logger.isDebugEnabled())
+                {
+                    logger.debug("No node available to activate actor: {}.", interfaceClassName);
                 }
                 waitForServers();
             }
@@ -494,19 +509,15 @@ public class Hosting implements NodeCapabilities, Startable, PipelineExtension
 
     private void waitForServers()
     {
-        // waits for servers
         synchronized (serverNodesUpdateMutex)
         {
-            if (serverNodes.size() == 0)
+            try
             {
-                try
-                {
-                    serverNodesUpdateMutex.wait(5);
-                }
-                catch (InterruptedException e)
-                {
-                    throw new UncheckedException(e);
-                }
+                serverNodesUpdateMutex.wait(1000);
+            }
+            catch (InterruptedException e)
+            {
+                Thread.currentThread().interrupt();
             }
         }
     }
@@ -670,6 +681,7 @@ public class Hosting implements NodeCapabilities, Startable, PipelineExtension
                             }
                             catch (RuntimeException ignore)
                             {
+                                logger.error("Got exception when trying to move an actor.", ignore);
                             }
                         }
                         // forwards the message to somewhere else.

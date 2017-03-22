@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2016 Electronic Arts Inc.  All rights reserved.
+ Copyright (C) 2017 Electronic Arts Inc.  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions
@@ -26,43 +26,12 @@
  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package cloud.orbit.actors.runtime;
+package cloud.orbit.actors.test.actors;
 
-import java.io.Serializable;
+import cloud.orbit.actors.Actor;
+import cloud.orbit.concurrent.Task;
 
-public class RemoteKey implements Serializable
+public interface InvocationHandlerActor extends Actor
 {
-    private final String iClass;
-    private final String id;
-
-    public RemoteKey(String iClass, String id)
-    {
-        this.iClass = iClass;
-        this.id = id;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        final RemoteKey actorKey;
-
-        return (this == o) || (o != null
-                && getClass() == o.getClass()
-                && iClass.equals((actorKey = (RemoteKey) o).iClass)
-                && id.equals(actorKey.id));
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int result = iClass.hashCode();
-        result = 31 * result + id.hashCode();
-        return result;
-    }
-
-    @Override
-    public String toString()
-    {
-        return iClass + "/" + id;
-    }
+    Task<String> poke();
 }
